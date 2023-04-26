@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 
+from pathlib import Path
+
+
 import cv2
 import depthai as dai
 import numpy as np
 import torch
 
-
-model = torch.hub.load('ultralytics/yolov5', 'custom', path='../models/box_cone_v2/box_cones.pt', force_reload=True)
+pt_Path = str((Path(__file__).parent / Path('../models/box_cone_v3/box_cones_v3.pt')).resolve().absolute())
+model = torch.hub.load('ultralytics/yolov5', 'custom', path=pt_Path, force_reload=True)
 # model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
 color = (255, 255, 255)
 

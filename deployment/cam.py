@@ -14,7 +14,10 @@ Spatial Tiny-yolo example
 '''
 
 # Get argument first
-nnBlobPath = str((Path(__file__).parent / Path('../models/box_cone_v2/box_cones_openvino_2022.1_6shave.blob')).resolve().absolute())
+# my_path = '../models/box_cone_v3/box_cones_v3_openvino_2022.1_6shave.blob'
+# my_path = '../models/box_cone_v4/box_cones_v4_openvino_2022.1_5shave.blob'
+my_path = '../models/box_cone_v6/box_cones_v6_openvino_2022.1_10shave.blob'
+nnBlobPath = str((Path(__file__).parent / Path(my_path)).resolve().absolute())
 # if 1 < len(sys.argv):
 #     arg = sys.argv[1]
 #     if arg == "yolo3":
@@ -31,13 +34,16 @@ if not Path(nnBlobPath).exists():
     raise FileNotFoundError(f'Required file/s not found, please run "{sys.executable} install_requirements.py"')
 
 # Tiny yolo v3/4 label texts
-labelMap = ['Cone', 'Drum', 'Tube', 'bicycle', 'car', 'cone', 'obstacle', 'person', 'traffic cone', 'trafficcone', 'van']
+labelMap = [
+            "cone",
+            "obstacle"
+        ]
 
 syncNN = True
 
 lrcheck = True
 subpixel = True
-long_range = True
+long_range = False
 
 # Create pipeline
 pipeline = dai.Pipeline()
@@ -60,8 +66,9 @@ xoutDepth.setStreamName("depth")
 nnNetworkOut.setStreamName("nnNetwork")
 
 # Properties
-camRgb.setPreviewSize(288, 288)
-# camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_800_P)
+camRgb.setPreviewSize(256, 160)
+# camRgb.setFps(30)
+camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_800_P)
 camRgb.setInterleaved(False)
 camRgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
 
@@ -82,6 +89,9 @@ stereo.setExtendedDisparity(long_range)
 spatialDetectionNetwork.setBlobPath(nnBlobPath)
 spatialDetectionNetwork.setConfidenceThreshold(0.5)
 spatialDetectionNetwork.input.setBlocking(False)
+# spatialDetectionNetwork.input.setQueueSize(1)
+# spatialDetectionNetwork.setNumInferenceThreads(2) # By default 2 threads are used
+# spatialDetectionNetwork.setNumNCEPerInferenceThread(1) # By default, 1 NCE is used per thread
 spatialDetectionNetwork.setBoundingBoxScaleFactor(0.5)
 spatialDetectionNetwork.setDepthLowerThreshold(100)
 spatialDetectionNetwork.setDepthUpperThreshold(8000)
@@ -90,7 +100,7 @@ spatialDetectionNetwork.setSpatialCalculationAlgorithm(dai.SpatialLocationCalcul
 
 
 # Yolo specific parameters
-spatialDetectionNetwork.setNumClasses(11)
+spatialDetectionNetwork.setNumClasses(2)
 spatialDetectionNetwork.setCoordinateSize(4)
 spatialDetectionNetwork.setAnchors([
                 10.0,
@@ -113,24 +123,24 @@ spatialDetectionNetwork.setAnchors([
                 326.0
             ])
 spatialDetectionNetwork.setAnchorMasks({
-                "side36": [
+                "side32": [
                     0,
                     1,
                     2
                 ],
-                "side18": [
+                "side16": [
                     3,
                     4,
                     5
                 ],
-                "side9": [
+                "side8": [
                     6,
                     7,
                     8
                 ]
             })
 spatialDetectionNetwork.setIouThreshold(0.5)
-spatialDetectionNetwork.setConfidenceThreshold(0.3)
+spatialDetectionNetwork.setConfidenceThreshold(0.5)
 
 # Linking
 monoLeft.out.link(stereo.left)
@@ -162,6 +172,7 @@ with dai.Device(pipeline) as device:
     fps = 0
     color = (255, 255, 255)
     printOutputLayersOnce = True
+    diffs = np.array([])
 
     while True:
         inPreview = previewQueue.get()
@@ -223,7 +234,9 @@ with dai.Device(pipeline) as device:
             cv2.putText(frame, f"Z: {int(detection.spatialCoordinates.z)} mm", (x1 + 10, y1 + 80), cv2.FONT_HERSHEY_TRIPLEX, 0.5, 255)
 
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, cv2.FONT_HERSHEY_SIMPLEX)
-
+        latencyMs = (dai.Clock.now() - inPreview.getTimestamp()).total_seconds() * 1000
+        diffs = np.append(diffs, latencyMs)
+        print('Latency: {:.2f} ms, Average latency: {:.2f} ms, Std: {:.2f}'.format(latencyMs, np.average(diffs), np.std(diffs)))
         cv2.putText(frame, "NN fps: {:.2f}".format(fps), (2, frame.shape[0] - 4), cv2.FONT_HERSHEY_TRIPLEX, 0.4, color)
         cv2.imshow("depth", depthFrameColor)
         cv2.imshow("rgb", frame)

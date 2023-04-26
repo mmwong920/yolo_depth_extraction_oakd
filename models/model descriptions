@@ -1,0 +1,5 @@
+box_cone_v1 : 416x416 11 classes 6 shaves
+box_cone_v2 : 288x288 11 classes 6 shaves
+box_cone_v3 : 256x160 2 classes 6 shaves
+box_cone_v4 : 256x160 2 classes 5 shaves (same best.pt as v3)
+box_cone_v5 : 256x160 2 classes 10 shaves (same best.pt as v3)
